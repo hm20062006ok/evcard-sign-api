@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { Env } from './types';
 import { handleScheduled, getInitialExecutionTime } from './scheduled';
 import { makeSignInRequest } from './lib/evcard';
@@ -88,6 +89,7 @@ api.post('/tokens/:id/signin', async (c) => {
 		return c.json({ error: 'Failed to perform sign-in.', details: e.message }, 500);
 	}
 });
+app.use('/*', cors());
 
 // Mount the API routes under the /api prefix
 app.route('/api', api);

@@ -1,26 +1,71 @@
-import { fromHono } from "chanfana";
-import { Hono } from "hono";
-import { TaskCreate } from "./endpoints/taskCreate";
-import { TaskDelete } from "./endpoints/taskDelete";
-import { TaskFetch } from "./endpoints/taskFetch";
-import { TaskList } from "./endpoints/taskList";
+import { Hono } from 'hono';
+import { Env } from './types';
+import { handleScheduled, getInitialExecutionTime } from './scheduled';
 
-// Start a Hono app
 const app = new Hono<{ Bindings: Env }>();
+const api = new Hono<{ Bindings: Env }>();
 
-// Setup OpenAPI registry
-const openapi = fromHono(app, {
-	docs_url: "/",
+
+// API: Get all tokens
+api.get('/tokens', async (c) => {
+	const { results } = await c.env.DB.prepare('SELECT * FROM tokens ORDER BY id DESC').all();
+	return c.json(results);
 });
 
-// Register OpenAPI endpoints
-openapi.get("/api/tasks", TaskList);
-openapi.post("/api/tasks", TaskCreate);
-openapi.get("/api/tasks/:taskSlug", TaskFetch);
-openapi.delete("/api/tasks/:taskSlug", TaskDelete);
+// API: Add a new token
+api.post('/tokens', async (c) => {
+	try {
+		const { account_name, token } = await c.req.json<{ account_name: string; token: string }>();
+		if (!account_name || !token) {
+			return c.json({ error: 'Account name and Token are required.' }, 400);
+		}
+		const initialExecutionTime = getInitialExecutionTime();
+		await c.env.DB.prepare(
+			'INSERT INTO tokens (account_name, token, next_execution_time) VALUES (?, ?, ?)'
+		).bind(account_name, token, initialExecutionTime.toISOString()).run();
+		return c.json({ success: true }, 201);
+	} catch (e: any) {
+		return c.json({ error: 'Failed to add token. It may already exist.', details: e.message }, 500);
+	}
+});
 
-// You may also register routes for non OpenAPI directly on Hono
-// app.get('/test', (c) => c.text('Hono!'))
+// API: Update a token
+api.put('/tokens/:id', async (c) => {
+	const id = c.req.param('id');
+	try {
+		const { account_name, token } = await c.req.json<{ account_name: string; token: string }>();
+		if (!account_name || !token) {
+			return c.json({ error: 'Account name and Token are required.' }, 400);
+		}
+		const { success } = await c.env.DB.prepare(
+			'UPDATE tokens SET account_name = ?, token = ? WHERE id = ?'
+		).bind(account_name, token, id).run();
 
-// Export the Hono app
-export default app;
+		if (success) {
+			return c.json({ success: true });
+		} else {
+			return c.json({ error: 'Token not found' }, 404);
+		}
+	} catch (e: any) {
+		return c.json({ error: 'Failed to update token.', details: e.message }, 500);
+	}
+});
+
+// API: Delete a token
+api.delete('/tokens/:id', async (c) => {
+	const id = c.req.param('id');
+	const { success } = await c.env.DB.prepare('DELETE FROM tokens WHERE id = ?').bind(id).run();
+	if (success) {
+		return c.json({ success: true });
+	}
+	return c.json({ error: 'Token not found' }, 404);
+});
+
+// Mount the API routes under the /api prefix
+app.route('/api', api);
+
+
+export default {
+	fetch: app.fetch,
+	scheduled: handleScheduled,
+};

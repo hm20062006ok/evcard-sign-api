@@ -11,3 +11,15 @@ export const Task = z.object({
 	completed: z.boolean().default(false),
 	due_date: DateTime(),
 });
+
+export interface Env {
+	DB: D1Database;
+	BARK_KEY: string;
+}
+
+export interface SignInResult {
+	success: boolean;
+	message: string;
+	data?: any;
+}
+

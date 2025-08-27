@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { Env } from './types';
 import { handleScheduled, getInitialExecutionTime } from './scheduled';
+import { makeSignInRequest } from './lib/evcard';
 
 const app = new Hono<{ Bindings: Env }>();
 const api = new Hono<{ Bindings: Env }>();
@@ -59,6 +60,33 @@ api.delete('/tokens/:id', async (c) => {
 		return c.json({ success: true });
 	}
 	return c.json({ error: 'Token not found' }, 404);
+});
+
+// API: Manually trigger a sign-in for a specific token
+api.post('/tokens/:id/signin', async (c) => {
+	const id = c.req.param('id');
+	try {
+		// 1. Find the token in the database
+		const tokenInfo = await c.env.DB.prepare('SELECT * FROM tokens WHERE id = ?').bind(id).first<{
+			id: number;
+			account_name: string;
+			token: string;
+		}>();
+
+		if (!tokenInfo) {
+			return c.json({ error: 'Token not found' }, 404);
+		}
+
+		// 2. Call the sign-in function from evcard.ts
+		const result = await makeSignInRequest(c.env, tokenInfo.token, tokenInfo.account_name);
+
+		// 3. Return the result from the sign-in attempt
+		return c.json(result);
+
+	} catch (e: any) {
+		console.error(`Failed to manually sign in for token ID ${id}:`, e.message);
+		return c.json({ error: 'Failed to perform sign-in.', details: e.message }, 500);
+	}
 });
 
 // Mount the API routes under the /api prefix

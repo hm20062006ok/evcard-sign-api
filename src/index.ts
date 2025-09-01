@@ -63,7 +63,7 @@ api.delete('/tokens/:id', async (c) => {
 	return c.json({ error: 'Token not found' }, 404);
 });
 
-// API: Manually trigger a sign-in for a specific token
+// 重新部署
 api.post('/tokens/:id/signin', async (c) => {
 	const id = c.req.param('id');
 	try {

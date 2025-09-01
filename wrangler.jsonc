@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "evcard-sign-worker",
+	"name": "evcard-sign-api",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-08-26",
 	"compatibility_flags": ["nodejs_compat"],

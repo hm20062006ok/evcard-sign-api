@@ -102,7 +102,7 @@ export async function makeSignInRequest(env: Env, token: string, accountName: st
 
         const result: SignInResult = {
             success: responseData.code === 200,
-            message: '签到成功：' + JSON.stringify(responseData.data),
+            message: '签到成功：' + JSON.stringify(responseData),
             data: responseData.data
         };
 

@@ -7,6 +7,39 @@ import { makeSignInRequest } from './lib/evcard';
 const app = new Hono<{ Bindings: Env }>();
 const api = new Hono<{ Bindings: Env }>();
 
+// 固定凭证
+const VALID_USERNAME = 'hm';
+const VALID_PASSWORD = 'hm@20062006ok';
+
+// 生成 token 的辅助函数
+async function generateToken(): Promise<string> {
+	const timestamp = Date.now().toString();
+	const randomBytes = crypto.getRandomValues(new Uint8Array(16));
+	const randomHex = Array.from(randomBytes)
+		.map(b => b.toString(16).padStart(2, '0'))
+		.join('');
+	return `${timestamp}-${randomHex}`;
+}
+
+// API: Login
+api.post('/login', async (c) => {
+	try {
+		const { username, password } = await c.req.json<{ username: string; password: string }>();
+		
+		if (!username || !password) {
+			return c.json({ error: 'Username and password are required.' }, 400);
+		}
+
+		if (username !== VALID_USERNAME || password !== VALID_PASSWORD) {
+			return c.json({ error: 'Invalid username or password.' }, 401);
+		}
+
+		const token = await generateToken();
+		return c.json({ success: true, token }, 200);
+	} catch (e: any) {
+		return c.json({ error: 'Failed to process login request.', details: e.message }, 500);
+	}
+});
 
 // API: Get all tokens
 api.get('/tokens', async (c) => {
